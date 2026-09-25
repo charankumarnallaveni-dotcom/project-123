@@ -38,6 +38,7 @@ import {
   Download,
   Trash2,
   Clock,
+  MapPin,
 } from 'lucide-react';
 
 interface HRSourcingPageProps {
@@ -1109,6 +1110,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
     jd.title ? `${jd.title} HR / Recruiter / Talent Acquisition` : 'Campus Relations, HR Recruiter, Talent Acquisition'
   );
   const [googleSearchContactName, setGoogleSearchContactName] = useState('');
+  const [googleSearchRegion, setGoogleSearchRegion] = useState<'all' | 'Hyderabad' | 'Bengaluru' | 'Chennai' | 'Pune'>('all');
   const [isSearchingGoogle, setIsSearchingGoogle] = useState(false);
   const [googleSearchResults, setGoogleSearchResults] = useState<
     Array<{
@@ -1422,6 +1424,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
         contact_name: googleSearchContactName.trim() || undefined,
         role_focus: googleSearchRoleFocus.trim() || undefined,
         company_id: (companies || []).find((c) => c.id === jd.company_id)?.id || companyId,
+        region: googleSearchRegion,
       });
 
       if (res.contacts && res.contacts.length > 0) {
@@ -1432,13 +1435,19 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
         setGoogleSearchQueries(res.search_queries || []);
         setGoogleSearchModel(res.model_used || '');
         setGoogleSearchDone(true);
+        const regionDesc = googleSearchRegion === 'all'
+          ? 'Hyderabad, Bengaluru, Chennai, and Pune'
+          : googleSearchRegion;
         setModalSuccess(
-          `Discovered ${sanitized.length} HR professionals via live Google Search. Phone numbers are strictly left blank for manual recruiter entry.`
+          `Discovered ${sanitized.length} HR professionals in ${regionDesc} via live Google Search. Phone numbers are strictly left blank for manual recruiter entry.`
         );
       } else {
         setGoogleSearchResults([]);
         setGoogleSearchDone(true);
-        setModalError('No HR contacts found for this company via Google Search. Try adjusting the role focus or company name.');
+        const regionDesc = googleSearchRegion === 'all'
+          ? 'Hyderabad, Bengaluru, Chennai, or Pune'
+          : googleSearchRegion;
+        setModalError(`No HR contacts found for ${targetComp} in ${regionDesc} via Google Search. Try switching the region filter or role focus.`);
       }
     } catch (err: any) {
       setModalError(err.message || 'Failed to search HR details via Google Search');
@@ -1461,11 +1470,12 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
         email: item.email || undefined,
         phone: manualPhone, // Left empty unless recruiter manually entered one into the card input
         linkedin_url: item.linkedin_url || undefined,
+        location: item.location || 'Hyderabad',
       });
 
       onContactsAdded([created]);
       setModalSuccess(
-        `Successfully saved ${item.name} to ${companyName}! ${manualPhone ? `Phone: ${manualPhone}` : 'Phone number left empty for manual entry.'}`
+        `Successfully saved ${item.name} (${item.location || 'Hyderabad'}) to ${companyName}! ${manualPhone ? `Phone: ${manualPhone}` : 'Phone number left empty for manual entry.'}`
       );
       setGoogleSearchResults((prev) => prev.filter((_, i) => i !== idx));
     } catch (err: any) {
@@ -1506,6 +1516,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
           email: item.email || undefined,
           phone: manualPhone, // Left empty unless manually entered
           linkedin_url: item.linkedin_url || undefined,
+          location: item.location || 'Hyderabad',
         });
         savedContacts.push(created);
       }
@@ -1528,6 +1539,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
         contact_name: singleName.trim() || undefined,
         role_focus: singleTitle.trim() || undefined,
         company_id: companyId,
+        region: googleSearchRegion,
       });
 
       if (res.contacts && res.contacts.length > 0) {
@@ -1689,6 +1701,10 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
                     </div>
                     <p className="text-gray-300 text-[11px] leading-relaxed">
                       Automatically queries live Google Search for HR leadership, recruiters, and talent acquisition teams for <strong>{companyName}</strong>. Details (Name, Role, Corporate Email, LinkedIn) are autofilled. Phone numbers are strictly left empty for manual recruiter entry.
+                      <span className="block mt-1 text-emerald-300 font-semibold flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 inline text-emerald-400 shrink-0" />
+                        <span>Regional Scope: Strictly restricted to <strong>Hyderabad, Bengaluru, Chennai, and Pune</strong> only.</span>
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -1741,6 +1757,79 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
                   </div>
                 </div>
 
+                {/* Regional Filter Bar (Hyderabad, Bengaluru, Chennai, Pune only) */}
+                <div className="pt-2 border-t border-gray-800/80 space-y-1.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-gray-300 flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Search Region:</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                        Hyderabad • Bengaluru • Chennai • Pune Only
+                      </span>
+                    </div>
+
+                    <div className="inline-flex items-center p-0.5 rounded-lg bg-gray-900 border border-gray-800 text-[11px] flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setGoogleSearchRegion('all')}
+                        className={`px-2.5 py-1 rounded-md transition font-medium cursor-pointer ${
+                          googleSearchRegion === 'all'
+                            ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        All 4 Hubs
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGoogleSearchRegion('Hyderabad')}
+                        className={`px-2.5 py-1 rounded-md transition font-medium cursor-pointer ${
+                          googleSearchRegion === 'Hyderabad'
+                            ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Hyderabad
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGoogleSearchRegion('Bengaluru')}
+                        className={`px-2.5 py-1 rounded-md transition font-medium cursor-pointer ${
+                          googleSearchRegion === 'Bengaluru'
+                            ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Bengaluru
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGoogleSearchRegion('Chennai')}
+                        className={`px-2.5 py-1 rounded-md transition font-medium cursor-pointer ${
+                          googleSearchRegion === 'Chennai'
+                            ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Chennai
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGoogleSearchRegion('Pune')}
+                        className={`px-2.5 py-1 rounded-md transition font-medium cursor-pointer ${
+                          googleSearchRegion === 'Pune'
+                            ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Pune
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between pt-1 border-t border-gray-800/80">
                   <div className="text-[11px] text-gray-400">
                     {googleSearchQueries.length > 0 && (
@@ -1779,7 +1868,13 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
                   <h4 className="text-sm font-semibold text-white">Running Google Live Web Grounding...</h4>
                   <p className="text-xs text-gray-400 max-w-md mx-auto">
                     Searching Google for recruiters and talent acquisition leads at{' '}
-                    <strong className="text-emerald-300">{googleSearchCompany}</strong>. Automatically parsing names, titles, emails, and LinkedIn links...
+                    <strong className="text-emerald-300">{googleSearchCompany}</strong> in{' '}
+                    <strong className="text-emerald-300">
+                      {googleSearchRegion === 'all'
+                        ? 'Hyderabad, Bengaluru, Chennai, and Pune'
+                        : googleSearchRegion}
+                    </strong>
+                    . Automatically parsing names, titles, emails, and LinkedIn links...
                   </p>
                 </div>
               )}
@@ -1794,6 +1889,10 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-medium">
                         Autofill Ready
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        <span>{googleSearchRegion === 'all' ? 'Hyd • Blr • Chn • Pune' : googleSearchRegion}</span>
                       </span>
                     </div>
                     <button
@@ -1823,10 +1922,24 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
                                 .join('')}
                             </div>
                             <div>
-                              <div className="font-semibold text-white text-sm flex items-center gap-2">
+                              <div className="font-semibold text-white text-sm flex items-center flex-wrap gap-2">
                                 <span>{contact.name}</span>
                                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800/60">
                                   Google Search
+                                </span>
+                                <span
+                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                                    contact.location === 'Hyderabad'
+                                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                      : contact.location === 'Bengaluru'
+                                      ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                                      : contact.location === 'Chennai'
+                                      ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                  }`}
+                                >
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span>{contact.location || 'Hyderabad'}</span>
                                 </span>
                               </div>
                               <div className="text-xs text-purple-300 font-medium mt-0.5">
@@ -1837,7 +1950,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({
                                 {contact.location && (
                                   <>
                                     <span>•</span>
-                                    <span>{contact.location}</span>
+                                    <span className="text-gray-300 font-medium">{contact.location} Region</span>
                                   </>
                                 )}
                               </div>

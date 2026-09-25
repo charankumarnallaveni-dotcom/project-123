@@ -411,14 +411,15 @@ export const CRMListPage: React.FC<CRMListPageProps> = ({ onAddRole }) => {
             <span className="px-1.5 py-0.5 bg-white/20 rounded text-[10px] uppercase font-extrabold">Leads</span>
           </button>
 
-          {/* Bulk Company Import Button (Total Company List) */}
+          {/* Bulk Company & HR Import Button (Excel & CSV) */}
           <button
             onClick={() => setIsBulkCompanyOpen(true)}
-            className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-amber-900/30 shrink-0 cursor-pointer"
-            title="Bulk import multi-row companies into Total Company List with duplicate detection"
+            className="px-3.5 py-2 bg-gradient-to-r from-amber-600 via-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-amber-900/30 shrink-0 cursor-pointer"
+            title="Bulk import Excel (.xlsx/.xls) or CSV files with Date, Company Name, HR Name, Phone & LinkedIn Link into CRM directory"
           >
-            <Building2 className="h-4 w-4" />
-            <span>Bulk Import Companies</span>
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Bulk Import (Excel / CSV)</span>
+            <span className="px-1.5 py-0.5 bg-black/25 text-amber-200 rounded text-[10px] font-bold">Company & HR</span>
           </button>
 
           {/* PDF & Document Intake Button */}
@@ -1205,15 +1206,18 @@ export const CRMListPage: React.FC<CRMListPageProps> = ({ onAddRole }) => {
         currentUser={currentUser || undefined}
       />
 
-      {/* Dedicated Bulk Company Import Modal (Total Company List) */}
+      {/* Dedicated Bulk Company & HR Import Modal (CRM Directory) */}
       <BulkCompanyImportModal
         isOpen={isBulkCompanyOpen}
         onClose={() => setIsBulkCompanyOpen(false)}
-        onImportComplete={(createdCount) => {
+        onImportComplete={(createdCount, createdContactsCount) => {
           loadData();
           setFeedback({
             type: 'success',
-            text: `Bulk Company Import complete: ${createdCount} new organizations added to Total Company List!`,
+            text:
+              createdContactsCount !== undefined && createdContactsCount > 0
+                ? `Bulk Import complete: ${createdCount} companies and ${createdContactsCount} verified HR contacts successfully stored in CRM directory!`
+                : `Bulk Company Import complete: ${createdCount} new organizations added to Total Company List!`,
           });
           setTimeout(() => setFeedback(null), 5000);
         }}

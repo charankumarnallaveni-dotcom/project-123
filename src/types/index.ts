@@ -64,11 +64,83 @@ export interface Company {
   jds?: JD[];
 }
 
+export type TotalCompanyImportStatus = 'valid' | 'imported' | 'duplicate_skipped' | 'error' | 'invalid';
+
+export interface TotalCompanyRecord {
+  id: string;
+  name: string;
+  industry?: string;
+  website?: string;
+  linkedin_url?: string;
+  employee_count?: string;
+  location?: string;
+  source: string;
+  notes?: string;
+  import_status: TotalCompanyImportStatus;
+  error_log?: string;
+  validation_errors?: string[];
+  raw_row_data?: Record<string, any>;
+  batch_id?: string;
+  row_number?: number;
+  imported_by?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TotalCompanyImportBatch {
+  batch_id: string;
+  filename?: string;
+  total_rows: number;
+  valid_count: number;
+  imported_count: number;
+  duplicate_count: number;
+  error_count: number;
+  imported_by: string;
+  created_at: string;
+}
+
+export interface ServerValidationRowResult {
+  rowNumber: number;
+  name: string;
+  industry: string;
+  website: string;
+  linkedin_url: string;
+  employee_count: string;
+  location: string;
+  notes: string;
+  source: string;
+  status: 'valid' | 'duplicate' | 'error';
+  validationErrors: string[];
+  duplicateReason?: string;
+  existingMatchedName?: string;
+  feedbackMessage: string;
+  selected: boolean;
+  serverValidationStatus: 'server_validated' | 'client_fallback';
+  rawRecord: Record<string, any>;
+  isEdited?: boolean;
+}
+
+export interface ServerValidationResponse {
+  success: boolean;
+  source: 'server_validation_engine' | 'client_fallback';
+  filename: string;
+  total_rows: number;
+  valid_count: number;
+  duplicate_count: number;
+  error_count: number;
+  rows: ServerValidationRowResult[];
+  validated_at: string;
+  validation_summary?: {
+    message: string;
+  };
+}
+
 export interface HRContact {
   id: string;
   name: string;
   title?: string;
   company_id: string;
+  company_name?: string;
   email?: string;
   phone?: string;
   linkedin_url?: string;

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import {
   X,
@@ -38,6 +38,9 @@ interface ParsedSheetData {
 const KNOWN_SPOC_LIST = [
   'Namitha',
   'Harish',
+  'Charan',
+  'Solomon',
+  'Mrudula',
   'Pavithra',
   'Mansi',
   'Vineela',
@@ -61,9 +64,23 @@ export const ExcelWorksheetImportModal: React.FC<ExcelWorksheetImportModalProps>
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const [importAllSheets, setImportAllSheets] = useState(false);
   const [enteredByName, setEnteredByName] = useState(currentUser?.name || 'Aravind Reddy');
-  const [selectedDefaultSpoc, setSelectedDefaultSpoc] = useState(
-    defaultSpoc !== 'all' ? defaultSpoc : 'Namitha'
-  );
+  const [selectedDefaultSpoc, setSelectedDefaultSpoc] = useState(() => {
+    if (defaultSpoc && defaultSpoc !== 'all') return defaultSpoc;
+    return 'Namitha';
+  });
+
+  // Keep enteredByName and selectedDefaultSpoc in sync when props change
+  useEffect(() => {
+    if (currentUser?.name) {
+      setEnteredByName(currentUser.name);
+    }
+  }, [currentUser?.name]);
+
+  useEffect(() => {
+    if (defaultSpoc && defaultSpoc !== 'all') {
+      setSelectedDefaultSpoc(defaultSpoc);
+    }
+  }, [defaultSpoc]);
 
   // Column Mappings for active sheet: targetField -> excelColumnName
   const [columnMap, setColumnMap] = useState<{
@@ -313,9 +330,12 @@ export const ExcelWorksheetImportModal: React.FC<ExcelWorksheetImportModalProps>
         // Must have at least company or HR name
         if (!compVal && !hrVal) return;
 
-        const spocVal = columnMap.spoc && row[columnMap.spoc]
-          ? String(row[columnMap.spoc]).trim()
-          : sheetDefaultSpoc;
+        // In personal Team Worksheet (!adminMode), strictly enforce that all imported leads route to the logged user's dedicated sheet
+        const spocVal = !adminMode
+          ? selectedDefaultSpoc
+          : (columnMap.spoc && row[columnMap.spoc]
+              ? String(row[columnMap.spoc]).trim()
+              : sheetDefaultSpoc);
 
         leadsList.push({
           company_name: compVal || 'Unknown Company',
@@ -331,7 +351,7 @@ export const ExcelWorksheetImportModal: React.FC<ExcelWorksheetImportModalProps>
           domain: columnMap.domain ? String(row[columnMap.domain] || '').trim() : 'Technology',
           location: columnMap.location ? String(row[columnMap.location] || '').trim() : '',
           remarks: columnMap.remarks ? String(row[columnMap.remarks] || '').trim() : 'Imported via Excel',
-          spoc: spocVal || 'Namitha',
+          spoc: spocVal || selectedDefaultSpoc || 'Namitha',
           entered_by_name: enteredByName.trim() || 'Aravind Reddy',
         });
       });
@@ -664,21 +684,32 @@ export const ExcelWorksheetImportModal: React.FC<ExcelWorksheetImportModalProps>
                     <div>
                       <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center gap-2">
                         <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                        <span>Default SPOC Sheet (for unassigned rows)</span>
+                        <span>{adminMode ? 'Default SPOC Sheet (for unassigned rows)' : 'Target Dedicated Sheet (Your Sheet)'}</span>
                       </label>
-                      <select
-                        value={selectedDefaultSpoc}
-                        onChange={(e) => setSelectedDefaultSpoc(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        {KNOWN_SPOC_LIST.map((spoc) => (
-                          <option key={spoc} value={spoc}>
-                            {spoc} Sheet
-                          </option>
-                        ))}
-                      </select>
+                      {adminMode ? (
+                        <select
+                          value={selectedDefaultSpoc}
+                          onChange={(e) => setSelectedDefaultSpoc(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          {KNOWN_SPOC_LIST.map((spoc) => (
+                            <option key={spoc} value={spoc}>
+                              {spoc} Sheet
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="w-full bg-gray-900 border border-purple-600/50 rounded-lg px-3 py-2 text-xs text-white flex items-center justify-between">
+                          <span className="font-bold text-purple-200">{selectedDefaultSpoc} Sheet (Your Private Worksheet)</span>
+                          <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/60 px-2 py-0.5 rounded font-bold">
+                            🔒 Locked to You
+                          </span>
+                        </div>
+                      )}
                       <p className="text-[10px] text-gray-400 mt-1">
-                        Rows without an explicit SPOC column will route to this sheet.
+                        {adminMode
+                          ? 'Rows without an explicit SPOC column will route to this sheet.'
+                          : 'All imported records will be added directly into your personal dedicated worksheet.'}
                       </p>
                     </div>
                   </div>

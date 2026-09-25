@@ -25,7 +25,7 @@ import { Company, HRContact, JD, OutreachChannel, CRA } from '../types';
 import { api } from '../services/api';
 import { clientFallbackStore } from '../services/clientFallbackStore';
 import { formatIndianDate, formatIndianPhone } from '../utils/formatters';
-import { BulkCompanyImportModal } from '../components/BulkCompanyImportModal';
+import { BulkCompanyImporter } from '../components/BulkCompanyImporter';
 import { CompanyDetailsModal } from '../components/CompanyDetailsModal';
 
 interface AdminFullDataPageProps {
@@ -600,8 +600,8 @@ export const AdminFullDataPage: React.FC<AdminFullDataPageProps> = ({ currentUse
         </div>
       )}
 
-      {/* Bulk Company Import Modal */}
-      <BulkCompanyImportModal
+      {/* Bulk Company Importer Modal */}
+      <BulkCompanyImporter
         isOpen={showBulkCompanyImport}
         onClose={() => setShowBulkCompanyImport(false)}
         onImportComplete={() => {

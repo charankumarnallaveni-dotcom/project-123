@@ -50,6 +50,7 @@ export const DocumentIntakeModal: React.FC<DocumentIntakeModalProps> = ({
   if (!isOpen) return null;
 
   const detectNameFromFile = (f: File) => {
+    if (currentUser?.name) return; // Preserve logged-in user's ownership
     const match = f.name.match(/\b(aravind|namitha|harish|pavithra|mansi|vineela|deepak|kavya|sandeep)\b/i);
     if (match) {
       const spocName = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();

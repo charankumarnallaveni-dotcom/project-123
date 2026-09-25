@@ -8,7 +8,9 @@ import {
   LeaveRequest, 
   DashboardStats,
   JD,
-  OutreachChannel
+  OutreachChannel,
+  TotalCompanyRecord,
+  TotalCompanyImportBatch
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -19,6 +21,7 @@ const STORAGE_KEYS = {
   LEAVES: 'placemein_mock_leaves',
   CURRENT_USER: 'placemein_current_user',
   JDS: 'placemein_mock_jds',
+  TOTAL_COMPANY_LIST: 'placemein_total_company_list',
 };
 
 // Initial setup from seed data
@@ -202,6 +205,101 @@ function initializeMockData() {
         // If unparseable or corrupted, clear and re-initialize
         localStorage.removeItem(STORAGE_KEYS.JDS);
       }
+    }
+    // Initialize TOTAL_COMPANY_LIST seeds for audit and error tracking
+    if (!localStorage.getItem(STORAGE_KEYS.TOTAL_COMPANY_LIST)) {
+      const initialTotalCompanyList: TotalCompanyRecord[] = [
+        {
+          id: 'tcl_seed_1',
+          name: 'Tech Mahindra Limited',
+          industry: 'Information Technology',
+          website: 'https://www.techmahindra.com',
+          linkedin_url: 'https://www.linkedin.com/company/tech-mahindra',
+          employee_count: '100,000+ employees',
+          location: 'Pune / Hyderabad, India',
+          source: 'bulk_import',
+          notes: 'Fortune 500 IT Services Provider',
+          import_status: 'imported',
+          batch_id: 'batch_seed_001',
+          row_number: 1,
+          imported_by: 'Aravind Reddy',
+          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+        },
+        {
+          id: 'tcl_seed_2',
+          name: 'Wipro Technologies',
+          industry: 'IT Services & Consulting',
+          website: 'https://www.wipro.com',
+          linkedin_url: 'https://www.linkedin.com/company/wipro',
+          employee_count: '10,000+ employees',
+          location: 'Bengaluru, India',
+          source: 'bulk_import',
+          notes: 'Enterprise Software & Cloud',
+          import_status: 'imported',
+          batch_id: 'batch_seed_001',
+          row_number: 2,
+          imported_by: 'Aravind Reddy',
+          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+        },
+        {
+          id: 'tcl_seed_3',
+          name: 'Infosys Limited',
+          industry: 'IT Services',
+          website: 'https://www.infosys.com',
+          linkedin_url: 'https://www.linkedin.com/company/infosys',
+          employee_count: '10,000+ employees',
+          location: 'Bengaluru, Karnataka',
+          source: 'bulk_import',
+          notes: 'Global Tech Consulting',
+          import_status: 'duplicate_skipped',
+          error_log: 'Duplicate: Exact company name matches existing master directory record "Infosys"',
+          validation_errors: ['Company already exists in database'],
+          raw_row_data: { Company: 'Infosys Limited', Website: 'infosys.com' },
+          batch_id: 'batch_seed_001',
+          row_number: 3,
+          imported_by: 'Aravind Reddy',
+          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+        },
+        {
+          id: 'tcl_seed_4',
+          name: 'Nexus Alpha Ventures',
+          industry: 'Software',
+          website: 'htp://invalid-link',
+          linkedin_url: 'https://twitter.com/notlinkedin',
+          employee_count: '-5',
+          location: 'Hyderabad',
+          source: 'bulk_import',
+          notes: 'Series A FinTech candidate',
+          import_status: 'error',
+          error_log: '[Row 4] Validation failed: Website URL is invalid (missing http/https protocol); LinkedIn URL must belong to linkedin.com; Employee count cannot be negative.',
+          validation_errors: [
+            'Website URL is invalid (missing http/https or invalid hostname)',
+            'LinkedIn URL must belong to linkedin.com',
+            'Employee count cannot be negative'
+          ],
+          raw_row_data: { Company: 'Nexus Alpha Ventures', Website: 'htp://invalid-link', LinkedIn: 'https://twitter.com/notlinkedin' },
+          batch_id: 'batch_seed_001',
+          row_number: 4,
+          imported_by: 'Aravind Reddy',
+          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+        },
+        {
+          id: 'tcl_seed_5',
+          name: '',
+          industry: 'Consulting',
+          website: 'https://www.stealth.io',
+          source: 'bulk_import',
+          import_status: 'error',
+          error_log: '[Row 5] Validation failed: Company name is required and cannot be empty.',
+          validation_errors: ['Company name is required and cannot be empty'],
+          raw_row_data: { Company: '', Website: 'https://www.stealth.io' },
+          batch_id: 'batch_seed_001',
+          row_number: 5,
+          imported_by: 'Aravind Reddy',
+          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+        },
+      ];
+      localStorage.setItem(STORAGE_KEYS.TOTAL_COMPANY_LIST, JSON.stringify(initialTotalCompanyList));
     }
   } catch (e) {
     console.warn('[Storage] Quota check/initialization error:', e);
@@ -794,6 +892,101 @@ export const clientFallbackStore = {
     try {
       localStorage.setItem('placemein_outreach_channels', JSON.stringify(channels));
     } catch (_) {}
+  },
+
+  // --------------------------------------------------------------------------
+  // TOTAL COMPANY LIST & AUDIT ERROR LOGS
+  // --------------------------------------------------------------------------
+  getTotalCompanyList(options?: { status?: string; batch_id?: string; search?: string }): TotalCompanyRecord[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TOTAL_COMPANY_LIST);
+      let records: TotalCompanyRecord[] = stored ? JSON.parse(stored) : [];
+
+      if (options?.status && options.status !== 'all') {
+        records = records.filter((r) => r.import_status === options.status);
+      }
+      if (options?.batch_id && options.batch_id !== 'all') {
+        records = records.filter((r) => r.batch_id === options.batch_id);
+      }
+      if (options?.search && options.search.trim()) {
+        const q = options.search.trim().toLowerCase();
+        records = records.filter(
+          (r) =>
+            r.name?.toLowerCase().includes(q) ||
+            r.industry?.toLowerCase().includes(q) ||
+            r.website?.toLowerCase().includes(q) ||
+            r.location?.toLowerCase().includes(q) ||
+            r.error_log?.toLowerCase().includes(q) ||
+            r.batch_id?.toLowerCase().includes(q)
+        );
+      }
+
+      return records.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } catch (e) {
+      console.warn('Error fetching total_company_list from storage:', e);
+      return [];
+    }
+  },
+
+  saveTotalCompanyRecords(records: TotalCompanyRecord[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TOTAL_COMPANY_LIST, JSON.stringify(records));
+    } catch (e) {
+      console.error('Failed to save total_company_list records:', e);
+    }
+  },
+
+  addTotalCompanyRecords(newRecords: TotalCompanyRecord[]): void {
+    const existing = this.getTotalCompanyList();
+    const combined = [...newRecords, ...existing];
+    this.saveTotalCompanyRecords(combined);
+  },
+
+  clearTotalCompanyErrorLogs(batchId?: string): void {
+    const current = this.getTotalCompanyList();
+    let filtered: TotalCompanyRecord[];
+    if (batchId) {
+      filtered = current.filter((r) => !(r.batch_id === batchId && (r.import_status === 'error' || r.import_status === 'invalid')));
+    } else {
+      filtered = current.filter((r) => r.import_status !== 'error' && r.import_status !== 'invalid');
+    }
+    this.saveTotalCompanyRecords(filtered);
+  },
+
+  getTotalCompanyBatches(): TotalCompanyImportBatch[] {
+    const records = this.getTotalCompanyList();
+    const batchMap = new Map<string, TotalCompanyImportBatch>();
+
+    records.forEach((r) => {
+      const bId = r.batch_id || 'manual_entry';
+      if (!batchMap.has(bId)) {
+        batchMap.set(bId, {
+          batch_id: bId,
+          filename: r.notes?.includes('File:') ? r.notes.split('File:')[1]?.trim() : 'Batch Upload',
+          total_rows: 0,
+          valid_count: 0,
+          imported_count: 0,
+          duplicate_count: 0,
+          error_count: 0,
+          imported_by: r.imported_by || 'Admin',
+          created_at: r.created_at,
+        });
+      }
+      const b = batchMap.get(bId)!;
+      b.total_rows++;
+      if (r.import_status === 'imported' || r.import_status === 'valid') {
+        b.imported_count++;
+        b.valid_count++;
+      } else if (r.import_status === 'duplicate_skipped') {
+        b.duplicate_count++;
+      } else if (r.import_status === 'error' || r.import_status === 'invalid') {
+        b.error_count++;
+      }
+    });
+
+    return Array.from(batchMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   },
 };
 

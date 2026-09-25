@@ -259,6 +259,79 @@ CREATE TABLE cra_profiles (
 );
 ```
 
+### 8.2 Backend Row-Level Security (RLS) Policies (`assigned_to`)
+
+To guarantee strict isolation across recruitment data, PostgreSQL Row-Level Security (RLS) is enabled on all operational tables (`tasks`, `contacts`, `companies`, `jds`, `outreach_records`).
+
+- **CRA Isolation Rule:** Non-admin CRAs can **only retrieve, view, and update** records where `assigned_to` matches their authenticated User ID (`auth.uid()`).
+- **Admin Privilege Rule:** Administrators (`is_admin() = true`) maintain organization-wide oversight across all records.
+
+```sql
+-- Enable RLS on Operational Tables
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.jds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.outreach_records ENABLE ROW LEVEL SECURITY;
+
+-- 1. Tasks Table RLS Policy
+CREATE POLICY "CRAs can only select tasks assigned to them"
+ON public.tasks FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+);
+
+CREATE POLICY "CRAs can only update tasks assigned to them"
+ON public.tasks FOR UPDATE TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+)
+WITH CHECK (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+);
+
+-- 2. Contacts / Leads Table RLS Policy
+CREATE POLICY "CRAs can only select contacts assigned to them"
+ON public.contacts FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+-- 3. Companies Table RLS Policy
+CREATE POLICY "CRAs can only select companies assigned to them"
+ON public.companies FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+-- 4. JDs Table RLS Policy
+CREATE POLICY "CRAs can only select jds assigned to them"
+ON public.jds FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+-- 5. Outreach Records Table RLS Policy
+CREATE POLICY "CRAs can only select outreach assigned to them"
+ON public.outreach_records FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR public.is_admin()
+);
+```
+
 ---
 
 ## 9. Verification & Operational Guidelines

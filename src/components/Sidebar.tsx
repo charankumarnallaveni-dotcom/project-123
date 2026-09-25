@@ -52,6 +52,7 @@ const adminItems = [
   { id: 'admin-all-data', label: 'Master CRM & All Data', icon: Database },
   { id: 'admin-users', label: 'User Management', icon: UserCog },
   { id: 'admin-companies', label: 'Company & JD Oversight', icon: Building2 },
+  { id: 'admin-importer', label: 'Bulk Company Importer', icon: Database },
   { id: 'admin-sheets', label: 'All Worksheets & PDF', icon: FileSpreadsheet },
   { id: 'admin-tasks', label: 'Task Management', icon: CheckSquare },
   { id: 'admin-performance', label: 'Team Performance', icon: Award },

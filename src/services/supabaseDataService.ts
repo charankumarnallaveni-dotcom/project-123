@@ -13,8 +13,216 @@ import {
   Task, 
   LeaveRequest, 
   LeaveStatus, 
-  LeaveType 
+  LeaveType,
+  TotalCompanyRecord,
+  TotalCompanyImportBatch
 } from '../types';
+
+export const TOTAL_COMPANY_LIST_SCHEMA_SQL = `-- SQL Script for Supabase SQL Editor
+CREATE TABLE IF NOT EXISTS public.total_company_list (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    industry TEXT,
+    website TEXT,
+    linkedin_url TEXT,
+    employee_count TEXT,
+    location TEXT,
+    source TEXT DEFAULT 'bulk_import',
+    notes TEXT,
+    import_status TEXT NOT NULL DEFAULT 'imported',
+    error_log TEXT,
+    validation_errors JSONB,
+    raw_row_data JSONB,
+    batch_id TEXT,
+    row_number INTEGER,
+    imported_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_total_company_list_name ON public.total_company_list(LOWER(name));
+CREATE INDEX IF NOT EXISTS idx_total_company_list_status ON public.total_company_list(import_status);
+CREATE INDEX IF NOT EXISTS idx_total_company_list_batch ON public.total_company_list(batch_id);
+
+ALTER TABLE public.total_company_list ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Allow read access to total_company_list" ON public.total_company_list FOR SELECT USING (true);
+CREATE POLICY IF NOT EXISTS "Allow insert to total_company_list" ON public.total_company_list FOR INSERT WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "Allow update to total_company_list" ON public.total_company_list FOR UPDATE USING (true);
+CREATE POLICY IF NOT EXISTS "Allow delete to total_company_list" ON public.total_company_list FOR DELETE USING (true);
+`;
+
+export const SUPABASE_RLS_SCHEMA_SQL = `-- ============================================================================
+-- PLACEMEIN CRA CRM - Backend Row-Level Security (RLS) Schema
+-- ============================================================================
+-- Enforces backend Row-Level Security (RLS) policies in Supabase PostgreSQL
+-- so that CRAs (employees) can ONLY retrieve/access records where the
+-- 'assigned_to' column matches their own User ID (auth.uid()).
+--
+-- Admins retain global oversight across all organization records.
+-- ============================================================================
+
+-- 1. Helper function to check if the current user is an Admin
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND (role = 'admin' OR is_admin = true)
+  );
+$$;
+
+-- 2. Ensure assigned_to columns exist on operational tables
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'tasks' AND column_name = 'assigned_to'
+    ) THEN
+        ALTER TABLE public.tasks ADD COLUMN assigned_to UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+        UPDATE public.tasks SET assigned_to = assignee_id WHERE assigned_to IS NULL AND assignee_id IS NOT NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'contacts' AND column_name = 'assigned_to'
+    ) THEN
+        ALTER TABLE public.contacts ADD COLUMN assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'companies' AND column_name = 'assigned_to'
+    ) THEN
+        ALTER TABLE public.companies ADD COLUMN assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'jds' AND column_name = 'assigned_to'
+    ) THEN
+        ALTER TABLE public.jds ADD COLUMN assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'outreach_records' AND column_name = 'assigned_to'
+    ) THEN
+        ALTER TABLE public.outreach_records ADD COLUMN assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- 3. Indexes for fast RLS evaluation
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON public.tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_contacts_assigned_to ON public.contacts(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_companies_assigned_to ON public.companies(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_jds_assigned_to ON public.jds(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_outreach_records_assigned_to ON public.outreach_records(assigned_to);
+
+-- 4. Enable Row-Level Security (RLS) on all operational tables
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.jds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.outreach_records ENABLE ROW LEVEL SECURITY;
+
+-- 5. Strict RLS Policies for tasks: CRAs only access where assigned_to = auth.uid()
+DROP POLICY IF EXISTS "CRAs can only select tasks assigned to them" ON public.tasks;
+CREATE POLICY "CRAs can only select tasks assigned to them"
+ON public.tasks FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+);
+
+DROP POLICY IF EXISTS "CRAs can only update tasks assigned to them" ON public.tasks;
+CREATE POLICY "CRAs can only update tasks assigned to them"
+ON public.tasks FOR UPDATE TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+)
+WITH CHECK (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+);
+
+DROP POLICY IF EXISTS "CRAs can only insert tasks assigned to them" ON public.tasks;
+CREATE POLICY "CRAs can only insert tasks assigned to them"
+ON public.tasks FOR INSERT TO authenticated
+WITH CHECK (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+);
+
+DROP POLICY IF EXISTS "CRAs can only delete tasks assigned to them" ON public.tasks;
+CREATE POLICY "CRAs can only delete tasks assigned to them"
+ON public.tasks FOR DELETE TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR assignee_id = auth.uid()
+  OR public.is_admin()
+);
+
+-- 6. Strict RLS Policies for contacts: CRAs only access where assigned_to = auth.uid()
+DROP POLICY IF EXISTS "CRAs can only select contacts assigned to them" ON public.contacts;
+CREATE POLICY "CRAs can only select contacts assigned to them"
+ON public.contacts FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+DROP POLICY IF EXISTS "CRAs can only update contacts assigned to them" ON public.contacts;
+CREATE POLICY "CRAs can only update contacts assigned to them"
+ON public.contacts FOR UPDATE TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+)
+WITH CHECK (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+-- 7. Strict RLS Policies for companies: CRAs only access where assigned_to = auth.uid()
+DROP POLICY IF EXISTS "CRAs can only select companies assigned to them" ON public.companies;
+CREATE POLICY "CRAs can only select companies assigned to them"
+ON public.companies FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+-- 8. Strict RLS Policies for JDs: CRAs only access where assigned_to = auth.uid()
+DROP POLICY IF EXISTS "CRAs can only select jds assigned to them" ON public.jds;
+CREATE POLICY "CRAs can only select jds assigned to them"
+ON public.jds FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR created_by = auth.uid()
+  OR public.is_admin()
+);
+
+-- 9. Strict RLS Policies for outreach records: CRAs only access where assigned_to = auth.uid()
+DROP POLICY IF EXISTS "CRAs can only select outreach assigned to them" ON public.outreach_records;
+CREATE POLICY "CRAs can only select outreach assigned to them"
+ON public.outreach_records FOR SELECT TO authenticated
+USING (
+  assigned_to = auth.uid()
+  OR public.is_admin()
+);
+`;
 
 /**
  * Supabase Data Service
@@ -257,6 +465,206 @@ export const supabaseDataService = {
       total_created: created.length,
       total_existing: existing.length,
     };
+  },
+
+  // --------------------------------------------------------------------------
+  // TOTAL COMPANY LIST & AUDIT LOGS (total_company_list Supabase table)
+  // --------------------------------------------------------------------------
+  async getTotalCompanyList(options?: { status?: string; batch_id?: string; search?: string }): Promise<TotalCompanyRecord[]> {
+    if (!isSupabaseConfigured) {
+      return clientFallbackStore.getTotalCompanyList(options);
+    }
+
+    try {
+      let query = supabase
+        .from('total_company_list')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (options?.status && options.status !== 'all') {
+        query = query.eq('import_status', options.status);
+      }
+      if (options?.batch_id && options.batch_id !== 'all') {
+        query = query.eq('batch_id', options.batch_id);
+      }
+      if (options?.search && options.search.trim()) {
+        const q = options.search.trim();
+        query = query.or(`name.ilike.%${q}%,website.ilike.%${q}%,error_log.ilike.%${q}%,batch_id.ilike.%${q}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        // Table might not exist yet in user's Supabase instance
+        console.warn('[Supabase] total_company_list query returned error, using fallback store:', error.message);
+        return clientFallbackStore.getTotalCompanyList(options);
+      }
+
+      if (!data || data.length === 0) {
+        return clientFallbackStore.getTotalCompanyList(options);
+      }
+
+      return data.map((item: any) => ({
+        id: item.id,
+        name: item.name || '',
+        industry: item.industry || undefined,
+        website: item.website || undefined,
+        linkedin_url: item.linkedin_url || undefined,
+        employee_count: item.employee_count || undefined,
+        location: item.location || undefined,
+        source: item.source || 'bulk_import',
+        notes: item.notes || undefined,
+        import_status: item.import_status || 'imported',
+        error_log: item.error_log || undefined,
+        validation_errors: Array.isArray(item.validation_errors)
+          ? item.validation_errors
+          : item.validation_errors ? [String(item.validation_errors)] : undefined,
+        raw_row_data: item.raw_row_data || undefined,
+        batch_id: item.batch_id || undefined,
+        row_number: item.row_number !== undefined ? Number(item.row_number) : undefined,
+        imported_by: item.imported_by || undefined,
+        created_at: item.created_at || new Date().toISOString(),
+        updated_at: item.updated_at || undefined,
+      }));
+    } catch (err) {
+      console.warn('[Supabase] total_company_list fetch error:', err);
+      return clientFallbackStore.getTotalCompanyList(options);
+    }
+  },
+
+  async insertTotalCompanyBatch(
+    records: Array<{
+      name: string;
+      industry?: string;
+      website?: string;
+      linkedin_url?: string;
+      employee_count?: string;
+      location?: string;
+      source?: string;
+      notes?: string;
+      import_status: 'valid' | 'imported' | 'duplicate_skipped' | 'error' | 'invalid';
+      error_log?: string;
+      validation_errors?: string[];
+      raw_row_data?: Record<string, any>;
+      batch_id?: string;
+      row_number?: number;
+      imported_by?: string;
+    }>
+  ): Promise<{
+    success: boolean;
+    insertedCount: number;
+    errorCount: number;
+    records: TotalCompanyRecord[];
+  }> {
+    const formattedRecords: TotalCompanyRecord[] = records.map((r, idx) => ({
+      id: 'tcl_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substring(2, 6),
+      name: r.name || '',
+      industry: r.industry,
+      website: r.website,
+      linkedin_url: r.linkedin_url,
+      employee_count: r.employee_count,
+      location: r.location,
+      source: r.source || 'bulk_import',
+      notes: r.notes,
+      import_status: r.import_status,
+      error_log: r.error_log,
+      validation_errors: r.validation_errors,
+      raw_row_data: r.raw_row_data,
+      batch_id: r.batch_id || `batch_${Date.now()}`,
+      row_number: r.row_number !== undefined ? r.row_number : idx + 1,
+      imported_by: r.imported_by || 'Admin',
+      created_at: new Date().toISOString(),
+    }));
+
+    // Always mirror to clientFallbackStore so offline & fallback states match
+    clientFallbackStore.addTotalCompanyRecords(formattedRecords);
+
+    // Also synchronize valid imported companies into the active companies list
+    const validImports = formattedRecords.filter((r) => r.import_status === 'imported' && r.name && r.name.trim());
+    if (validImports.length > 0) {
+      try {
+        await this.bulkCreateCompanies(
+          validImports.map((c) => ({
+            name: c.name,
+            industry: c.industry,
+            website: c.website,
+            linkedin_url: c.linkedin_url,
+            notes: c.notes ? `${c.notes} | Batch: ${c.batch_id}` : `Imported via BulkCompanyImporter | Batch: ${c.batch_id}`,
+          }))
+        );
+      } catch (syncErr) {
+        console.warn('Syncing imported companies to master directory failed:', syncErr);
+      }
+    }
+
+    if (!isSupabaseConfigured) {
+      return {
+        success: true,
+        insertedCount: formattedRecords.length,
+        errorCount: formattedRecords.filter((r) => r.import_status === 'error' || r.import_status === 'invalid').length,
+        records: formattedRecords,
+      };
+    }
+
+    try {
+      const dbPayload = formattedRecords.map((r) => ({
+        name: r.name,
+        industry: r.industry || null,
+        website: r.website || null,
+        linkedin_url: r.linkedin_url || null,
+        employee_count: r.employee_count || null,
+        location: r.location || null,
+        source: r.source || 'bulk_import',
+        notes: r.notes || null,
+        import_status: r.import_status,
+        error_log: r.error_log || null,
+        validation_errors: r.validation_errors || null,
+        raw_row_data: r.raw_row_data || null,
+        batch_id: r.batch_id || null,
+        row_number: r.row_number || null,
+        imported_by: r.imported_by || null,
+      }));
+
+      const { data, error } = await supabase.from('total_company_list').insert(dbPayload).select();
+      if (error) {
+        console.warn('[Supabase] Inserting into total_company_list failed (table might need creation):', error.message);
+      } else if (data) {
+        return {
+          success: true,
+          insertedCount: data.length,
+          errorCount: formattedRecords.filter((r) => r.import_status === 'error' || r.import_status === 'invalid').length,
+          records: data as any,
+        };
+      }
+    } catch (e) {
+      console.warn('[Supabase] total_company_list insert exception:', e);
+    }
+
+    return {
+      success: true,
+      insertedCount: formattedRecords.length,
+      errorCount: formattedRecords.filter((r) => r.import_status === 'error' || r.import_status === 'invalid').length,
+      records: formattedRecords,
+    };
+  },
+
+  async clearTotalCompanyErrorLogs(batchId?: string): Promise<boolean> {
+    clientFallbackStore.clearTotalCompanyErrorLogs(batchId);
+    if (!isSupabaseConfigured) return true;
+
+    try {
+      let query = supabase.from('total_company_list').delete().in('import_status', ['error', 'invalid']);
+      if (batchId) {
+        query = query.eq('batch_id', batchId);
+      }
+      await query;
+      return true;
+    } catch (_) {
+      return true;
+    }
+  },
+
+  async getTotalCompanyBatches(): Promise<TotalCompanyImportBatch[]> {
+    return clientFallbackStore.getTotalCompanyBatches();
   },
 
   // --------------------------------------------------------------------------
@@ -949,10 +1357,16 @@ export const supabaseDataService = {
   // TASKS
   // --------------------------------------------------------------------------
   async getTasks(status?: string, assigneeId?: string): Promise<Task[]> {
+    const currentUser = clientFallbackStore.getCurrentUser();
+    // Enforce CRA RLS principle: CRAs can only retrieve/access records assigned to their own User ID
+    const effectiveAssigneeId = currentUser?.role === 'cra' ? currentUser.id : assigneeId;
+
     if (!isSupabaseConfigured) {
       let tasks = clientFallbackStore.getTasks();
       if (status) tasks = tasks.filter((t) => t.status === status);
-      if (assigneeId) tasks = tasks.filter((t) => t.assignee_id === assigneeId);
+      if (effectiveAssigneeId) {
+        tasks = tasks.filter((t) => t.assignee_id === effectiveAssigneeId || (t as any).assigned_to === effectiveAssigneeId);
+      }
       return tasks;
     }
 
@@ -965,19 +1379,25 @@ export const supabaseDataService = {
       `).order('created_at', { ascending: false });
 
       if (status) query = query.eq('status', status);
-      if (assigneeId) query = query.eq('assignee_id', assigneeId);
+      if (effectiveAssigneeId) {
+        query = query.or(`assigned_to.eq.${effectiveAssigneeId},assignee_id.eq.${effectiveAssigneeId}`);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
       if (!data || data.length === 0) {
-        return clientFallbackStore.getTasks();
+        let fallback = clientFallbackStore.getTasks();
+        if (effectiveAssigneeId) {
+          fallback = fallback.filter((t) => t.assignee_id === effectiveAssigneeId || (t as any).assigned_to === effectiveAssigneeId);
+        }
+        return fallback;
       }
 
       return data.map((t: any) => ({
         id: t.id,
         title: t.title,
         description: t.description || undefined,
-        assignee_id: t.assignee_id,
+        assignee_id: t.assigned_to || t.assignee_id,
         assigned_by_id: t.assigned_by_id,
         priority: t.priority,
         status: t.status,
@@ -992,7 +1412,11 @@ export const supabaseDataService = {
       }));
     } catch (err) {
       console.warn('[Supabase] Error loading tasks, using fallback:', err);
-      return clientFallbackStore.getTasks();
+      let fallback = clientFallbackStore.getTasks();
+      if (effectiveAssigneeId) {
+        fallback = fallback.filter((t) => t.assignee_id === effectiveAssigneeId || (t as any).assigned_to === effectiveAssigneeId);
+      }
+      return fallback;
     }
   },
 
@@ -1037,6 +1461,7 @@ export const supabaseDataService = {
       .insert({
         title: taskData.title,
         description: taskData.description || null,
+        assigned_to: taskData.assignee_id,
         assignee_id: taskData.assignee_id,
         priority: taskData.priority || 'medium',
         due_date: taskData.due_date || null,

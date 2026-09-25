@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { totalCompanyRouter } from './totalCompany';
+import { hrGoogleSearchRouter } from './hrGoogleSearch';
 
 export const apiRouter = Router();
 
@@ -168,6 +170,34 @@ apiRouter.get('/users/', (req: Request, res: Response) => {
 apiRouter.get('/admin/users', (req: Request, res: Response) => {
   return res.json(mockUsers);
 });
+
+// Total Company List & Bulk Importer Endpoints
+apiRouter.use('/total-companies', totalCompanyRouter);
+
+// Backend Row-Level Security (RLS) Policy Endpoint
+apiRouter.get('/schema/rls', (req: Request, res: Response) => {
+  return res.json({
+    status: 'active',
+    policy_target: 'assigned_to',
+    enforcement: 'CRAs can only retrieve/access records where assigned_to matches their own User ID (auth.uid())',
+    tables: ['tasks', 'contacts', 'companies', 'jds', 'outreach_records'],
+    sql_file: '/supabase/schema.sql',
+    migration_file: '/supabase/migrations/20260925_rls_assigned_to.sql',
+  });
+});
+
+// Aliases for bulk company importer workflows
+apiRouter.post('/companies/bulk-validate', (req: Request, res: Response, next) => {
+  req.url = '/validate';
+  totalCompanyRouter(req, res, next);
+});
+apiRouter.post('/companies/bulk-commit', (req: Request, res: Response, next) => {
+  req.url = '/commit';
+  totalCompanyRouter(req, res, next);
+});
+
+// Google Search HR (Restricted to Hyderabad, Bengaluru, Chennai, Pune only) & Contact Autofill
+apiRouter.use('/contacts', hrGoogleSearchRouter);
 
 // Catch-all 404 for remaining unhandled endpoints to trigger client-side fallback
 apiRouter.use('*', (req: Request, res: Response) => {

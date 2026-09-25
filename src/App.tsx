@@ -126,6 +126,8 @@ export const App: React.FC = () => {
           return <TaskManagementPage employeeMode={false} />;
         case 'admin-companies':
           return <AdminPortalPage initialTab="companies" currentUser={currentUser} />;
+        case 'admin-importer':
+          return <AdminPortalPage initialTab="importer" currentUser={currentUser} />;
         case 'admin-performance':
           return <PerformancePage employeeMode={false} />;
         case 'admin-settings':

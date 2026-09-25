@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { clientFallbackStore } from '../services/clientFallbackStore';
 import { formatIndianDate, formatIndianNumber } from '../utils/formatters';
 import { BulkCompanyImportModal } from '../components/BulkCompanyImportModal';
+import { BulkCompanyImporter } from '../components/BulkCompanyImporter';
 import { CompanyDetailsModal } from '../components/CompanyDetailsModal';
 import {
   ShieldCheck,
@@ -35,7 +36,7 @@ import {
 } from 'lucide-react';
 
 interface AdminPortalPageProps {
-  initialTab?: 'users' | 'companies' | 'settings';
+  initialTab?: 'users' | 'companies' | 'importer' | 'settings';
   currentUser?: CRA | null;
 }
 
@@ -43,7 +44,7 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
   initialTab = 'users',
   currentUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'companies' | 'settings'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'users' | 'companies' | 'importer' | 'settings'>(initialTab);
   const [users, setUsers] = useState<CRA[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [unverifiedJDs, setUnverifiedJDs] = useState<JD[]>([]);
@@ -420,6 +421,21 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
         >
           <Building2 className="h-4 w-4" />
           <span>Company & JD Oversight</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('importer')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            activeTab === 'importer'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-amber-200/80 hover:bg-amber-900/30'
+          }`}
+        >
+          <Database className="h-4 w-4" />
+          <span>Bulk Company Importer</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            total_company_list
+          </span>
         </button>
 
         <button
@@ -972,7 +988,24 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
         </div>
       )}
 
-      {/* TAB 3: SYSTEM SETTINGS */}
+      {/* TAB 3: BULK COMPANY IMPORTER (total_company_list) */}
+      {activeTab === 'importer' && (
+        <div className="space-y-6">
+          <BulkCompanyImporter
+            isEmbedded={true}
+            currentUser={currentUser}
+            onImportComplete={(summary) => {
+              showNotification(
+                'success',
+                `Bulk import finished: ${summary.importedCount} companies added to Master Directory, ${summary.duplicateCount} duplicates and ${summary.errorCount} validation errors logged to total_company_list.`
+              );
+              loadData();
+            }}
+          />
+        </div>
+      )}
+
+      {/* TAB 4: SYSTEM SETTINGS */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
           <div className="p-6 rounded-3xl bg-amber-950/30 border border-amber-800/40 shadow-xl space-y-6">
@@ -1393,14 +1426,14 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
         </div>
       )}
 
-      {/* Bulk Company Import Modal (Admin Master Directory) */}
-      <BulkCompanyImportModal
+      {/* Bulk Company Importer Modal (Admin Master Directory & total_company_list) */}
+      <BulkCompanyImporter
         isOpen={showBulkCompanyImport}
         onClose={() => setShowBulkCompanyImport(false)}
-        onImportComplete={(createdCount) => {
+        onImportComplete={(summary) => {
           showNotification(
             'success',
-            `Bulk Company Import successfully added ${createdCount} organizations into Master Directory!`
+            `Bulk Company Importer successfully added ${summary.importedCount} organizations! Logged ${summary.duplicateCount} duplicates and ${summary.errorCount} validation errors to total_company_list.`
           );
           loadData();
         }}
