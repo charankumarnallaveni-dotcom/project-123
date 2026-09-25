@@ -1065,6 +1065,7 @@ export const TeamSheetsPage: React.FC<TeamSheetsPageProps> = ({
         company={selectedCompany}
         isOpen={showCompanyModal}
         onClose={() => setShowCompanyModal(false)}
+        currentUser={currentUser}
         onUpdateCompany={(updated) => {
           setSelectedCompany(updated);
           setLeads((prev) =>

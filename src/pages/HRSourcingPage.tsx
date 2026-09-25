@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../services/api';
+import { clientFallbackStore } from '../services/clientFallbackStore';
 import { Company, JD, HRContact } from '../types';
 import { formatIndianDate, formatIndianPhone } from '../utils/formatters';
 import { parseHRContactsCSV, generateSampleCSV, ParsedContactRow } from '../utils/csvParser';
 import { BulkContactUploadModal } from '../components/BulkContactUploadModal';
 import { CompanyDetailsModal } from '../components/CompanyDetailsModal';
 import { DocumentIntakeModal } from '../components/DocumentIntakeModal';
+import { HTMLLeadsImportModal } from '../components/HTMLLeadsImportModal';
 import {
   Search,
   ExternalLink,
@@ -89,6 +91,7 @@ export const HRSourcingPage: React.FC<HRSourcingPageProps> = ({ onNavigateToJDIn
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [isCompanyDetailsOpen, setIsCompanyDetailsOpen] = useState(false);
   const [isDocIntakeOpen, setIsDocIntakeOpen] = useState(false);
+  const [isHTMLLeadsModalOpen, setIsHTMLLeadsModalOpen] = useState(false);
 
   // Load all data
   const fetchData = async () => {
@@ -266,17 +269,27 @@ export const HRSourcingPage: React.FC<HRSourcingPageProps> = ({ onNavigateToJDIn
             </div>
           </div>
 
-          {/* Action Buttons: Bulk CSV, PDF Import & Enter HR Contacts */}
+          {/* Action Buttons: HTML Lead Import, PDF Intake, Bulk CSV & Enter HR Contacts */}
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsDocIntakeOpen(true)}
+              onClick={() => setIsHTMLLeadsModalOpen(true)}
               className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98]"
+              title="Extract candidate & HR recruiter leads from scraped/pasted HTML into Contacts CRM"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Import Leads (HTML)</span>
+              <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px] uppercase font-extrabold">Leads</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsDocIntakeOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 text-xs font-bold transition shadow-md hover:scale-[1.02] active:scale-[0.98]"
               title="Import company details, headcount, and HR phone numbers from PDF or text"
             >
-              <FileText className="h-4 w-4" />
+              <FileText className="h-4 w-4 text-purple-400" />
               <span>Import from PDF</span>
-              <span className="px-1.5 py-0.5 bg-white/20 rounded text-[9px] uppercase font-bold">AI</span>
             </button>
 
             <button
@@ -995,6 +1008,7 @@ export const HRSourcingPage: React.FC<HRSourcingPageProps> = ({ onNavigateToJDIn
       <CompanyDetailsModal
         company={selectedCompany}
         isOpen={isCompanyDetailsOpen}
+        currentUser={clientFallbackStore.getCurrentUser()}
         onClose={() => {
           setIsCompanyDetailsOpen(false);
           setSelectedCompany(null);
@@ -1029,6 +1043,20 @@ export const HRSourcingPage: React.FC<HRSourcingPageProps> = ({ onNavigateToJDIn
           });
           setIsCompanyDetailsOpen(true);
         }}
+      />
+
+      {/* Dedicated HTML Leads Import Modal (Leads Only) */}
+      <HTMLLeadsImportModal
+        isOpen={isHTMLLeadsModalOpen}
+        onClose={() => setIsHTMLLeadsModalOpen(false)}
+        onLeadsImported={(count) => {
+          fetchData();
+          setNotification({
+            type: 'success',
+            message: `Successfully extracted and imported ${count} lead(s) into Contacts CRM!`,
+          });
+        }}
+        availableCompanies={companies}
       />
     </div>
   );

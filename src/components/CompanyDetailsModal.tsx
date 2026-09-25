@@ -43,6 +43,7 @@ export const CompanyDetailsModal: React.FC<CompanyDetailsModalProps> = ({
 }) => {
   const [currentUser, setCurrentUser] = useState<CRA | null>(propUser || null);
   const [isEditing, setIsEditing] = useState(false);
+  const [companyName, setCompanyName] = useState('');
   const [employeeCount, setEmployeeCount] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [industry, setIndustry] = useState('');
@@ -81,6 +82,7 @@ export const CompanyDetailsModal: React.FC<CompanyDetailsModalProps> = ({
 
   React.useEffect(() => {
     if (company) {
+      setCompanyName(company.name || '');
       setEmployeeCount(company.employee_count || '100-500 employees');
       setLinkedinUrl(company.linkedin_url || `https://www.linkedin.com/company/${company.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`);
       setIndustry(company.industry || '');
@@ -96,11 +98,9 @@ export const CompanyDetailsModal: React.FC<CompanyDetailsModalProps> = ({
 
   if (!isOpen || !company) return null;
 
-  // Rule: Once a company profile is created, only Admins (or the original creator) may edit profile fields.
-  // Other CRAs have view-only access. Exception: any CRA may still add a new JD/role under this company.
-  const canEditCompany = currentUser?.role === 'admin' ||
-    (currentUser?.id && company.created_by === currentUser.id) ||
-    (currentUser?.name && company.entered_by_name?.toLowerCase() === currentUser.name.toLowerCase());
+  // Strict rule: Editing a company record must be restricted to Admin role ONLY.
+  // CRAs can view/add companies via normal flow but cannot edit existing company records once created.
+  const canEditCompany = currentUser?.role === 'admin';
 
   const handleCopyPhone = (phone: string) => {
     navigator.clipboard.writeText(phone);
@@ -109,14 +109,20 @@ export const CompanyDetailsModal: React.FC<CompanyDetailsModalProps> = ({
   };
 
   const handleSaveCompanyEdits = async () => {
+    if (!canEditCompany) {
+      setFeedback({ type: 'error', text: 'Forbidden: Only Admin leadership can edit company records.' });
+      return;
+    }
     setIsSaving(true);
     setFeedback(null);
     try {
       const updated = await api.updateCompany(company.id, {
+        name: companyName.trim() || company.name,
         employee_count: employeeCount.trim(),
         linkedin_url: linkedinUrl.trim(),
         industry: industry.trim(),
         website: website.trim(),
+        location: location.trim(),
         entered_by_name: enteredByName.trim(),
       });
       onUpdateCompany?.(updated);
@@ -312,6 +318,42 @@ export const CompanyDetailsModal: React.FC<CompanyDetailsModalProps> = ({
 
         {/* Modal Scrollable Content */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          {/* Read-Only Notice for CRAs */}
+          {!canEditCompany && (
+            <div className="bg-amber-950/30 border border-amber-800/40 rounded-xl p-3 flex items-center gap-2.5 text-xs text-amber-200">
+              <Lock className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Admin Restricted:</strong> Company details are locked. Only Admin leadership can edit existing company records. CRAs can view properties and add new contacts or open roles below.
+              </span>
+            </div>
+          )}
+
+          {/* Admin Edit: Company Name & Location */}
+          {isEditing && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-950/20 border border-amber-700/40 rounded-xl p-4">
+              <div>
+                <label className="block text-xs font-semibold text-amber-300 mb-1">Company Name *</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Company Name"
+                  className="w-full bg-gray-900 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-sm text-white font-bold focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-amber-300 mb-1">Location / Headquarters</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Hyderabad, Bengaluru"
+                  className="w-full bg-gray-900 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Company Key Metrics / Attributes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {/* Metric 1: How many people working */}

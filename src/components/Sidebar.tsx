@@ -17,6 +17,8 @@ import {
   User,
   ArrowLeftRight,
   FileSpreadsheet,
+  Database,
+  DollarSign,
 } from 'lucide-react';
 import { CRA } from '../types';
 
@@ -46,10 +48,12 @@ const employeeItems = [
 
 const adminItems = [
   { id: 'admin-team-lead-dashboard', label: 'Team Lead Dashboard', icon: LayoutDashboard },
+  { id: 'admin-salary', label: 'Salary & JD Payouts', icon: DollarSign },
+  { id: 'admin-all-data', label: 'Master CRM & All Data', icon: Database },
   { id: 'admin-users', label: 'User Management', icon: UserCog },
+  { id: 'admin-companies', label: 'Company & JD Oversight', icon: Building2 },
   { id: 'admin-sheets', label: 'All Worksheets & PDF', icon: FileSpreadsheet },
   { id: 'admin-tasks', label: 'Task Management', icon: CheckSquare },
-  { id: 'admin-companies', label: 'Company & JD Oversight', icon: Building2 },
   { id: 'admin-performance', label: 'Team Performance', icon: Award },
   { id: 'admin-settings', label: 'System Settings', icon: Settings },
 ];

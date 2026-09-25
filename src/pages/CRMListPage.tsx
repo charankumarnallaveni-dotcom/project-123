@@ -28,6 +28,8 @@ import {
 import { CompanyDetailsModal } from '../components/CompanyDetailsModal';
 import { DocumentIntakeModal } from '../components/DocumentIntakeModal';
 import { CSVBulkImportModal } from '../components/CSVBulkImportModal';
+import { HTMLLeadsImportModal } from '../components/HTMLLeadsImportModal';
+import { BulkCompanyImportModal } from '../components/BulkCompanyImportModal';
 
 interface OutcomeModalState {
   contact: HRContact;
@@ -91,6 +93,8 @@ export const CRMListPage: React.FC<CRMListPageProps> = ({ onAddRole }) => {
   const [isCompanyDetailsOpen, setIsCompanyDetailsOpen] = useState(false);
   const [isDocumentIntakeOpen, setIsDocumentIntakeOpen] = useState(false);
   const [isCSVBulkImportOpen, setIsCSVBulkImportOpen] = useState(false);
+  const [isHTMLLeadsOpen, setIsHTMLLeadsOpen] = useState(false);
+  const [isBulkCompanyOpen, setIsBulkCompanyOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CRA | null>(null);
 
   const loadData = () => {
@@ -396,24 +400,34 @@ export const CRMListPage: React.FC<CRMListPageProps> = ({ onAddRole }) => {
             <span>Add Company</span>
           </button>
 
-          {/* Bulk CSV Upload Button */}
+          {/* HTML Lead Import Button (Leads Only) */}
           <button
-            onClick={() => setIsCSVBulkImportOpen(true)}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-900/30 shrink-0 cursor-pointer"
-            title="Upload CSV to bulk import companies & roles with server-side duplicate check"
+            onClick={() => setIsHTMLLeadsOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-purple-900/30 shrink-0 cursor-pointer"
+            title="Extract candidate and HR recruiter leads from scraped/pasted HTML into CRM Contacts"
           >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Bulk CSV Import</span>
+            <Sparkles className="h-4 w-4" />
+            <span>Import Leads (HTML)</span>
+            <span className="px-1.5 py-0.5 bg-white/20 rounded text-[10px] uppercase font-extrabold">Leads</span>
+          </button>
+
+          {/* Bulk Company Import Button (Total Company List) */}
+          <button
+            onClick={() => setIsBulkCompanyOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-amber-900/30 shrink-0 cursor-pointer"
+            title="Bulk import multi-row companies into Total Company List with duplicate detection"
+          >
+            <Building2 className="h-4 w-4" />
+            <span>Bulk Import Companies</span>
           </button>
 
           {/* PDF & Document Intake Button */}
           <button
             onClick={() => setIsDocumentIntakeOpen(true)}
-            className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-purple-900/30 shrink-0 cursor-pointer"
+            className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
-            <FileText className="h-4 w-4" />
-            <span>Import from PDF</span>
-            <span className="px-1.5 py-0.5 bg-white/20 rounded text-[10px] uppercase font-bold">AI</span>
+            <FileText className="h-3.5 w-3.5 text-purple-400" />
+            <span>PDF Intake</span>
           </button>
 
           <div className="relative w-64">
@@ -1173,6 +1187,37 @@ export const CRMListPage: React.FC<CRMListPageProps> = ({ onAddRole }) => {
           setTimeout(() => setFeedback(null), 5000);
         }}
         teamMembers={TEAM_MEMBERS}
+      />
+
+      {/* Dedicated HTML Leads Import Modal (Leads Only) */}
+      <HTMLLeadsImportModal
+        isOpen={isHTMLLeadsOpen}
+        onClose={() => setIsHTMLLeadsOpen(false)}
+        onLeadsImported={(count) => {
+          loadData();
+          setFeedback({
+            type: 'success',
+            text: `Successfully imported ${count} lead(s) into Contacts CRM!`,
+          });
+          setTimeout(() => setFeedback(null), 5000);
+        }}
+        availableCompanies={companies}
+        currentUser={currentUser || undefined}
+      />
+
+      {/* Dedicated Bulk Company Import Modal (Total Company List) */}
+      <BulkCompanyImportModal
+        isOpen={isBulkCompanyOpen}
+        onClose={() => setIsBulkCompanyOpen(false)}
+        onImportComplete={(createdCount) => {
+          loadData();
+          setFeedback({
+            type: 'success',
+            text: `Bulk Company Import complete: ${createdCount} new organizations added to Total Company List!`,
+          });
+          setTimeout(() => setFeedback(null), 5000);
+        }}
+        currentUser={currentUser}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ewfnxfylqdovmjjdishu.supabase.co';
-const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3Zm54ZnlscWRvdm1qamRpc2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NTczODQsImV4cCI6MjEwNTAzMzM4NH0.LwM-gidROWGmvAVzyfkY9lumGEBjzbFYknn6v36EDvA';
+const rawUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://ewfnxfylqdovmjjdishu.supabase.co';
+const rawKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3Zm54ZnlscWRvdm1qamRpc2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NTczODQsImV4cCI6MjEwNTAzMzM4NH0.LwM-gidROWGmvAVzyfkY9lumGEBjzbFYknn6v36EDvA';
 
 // Clean URL: strip any trailing /rest/v1 or trailing slashes
 function sanitizeSupabaseUrl(url: string | undefined): string {

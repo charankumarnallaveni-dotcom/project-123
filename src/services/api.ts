@@ -333,6 +333,10 @@ export const api = {
   },
 
   async updateCompany(id: string, updates: Partial<Company>): Promise<Company> {
+    const current = clientFallbackStore.getCurrentUser();
+    if (current && current.role !== 'admin') {
+      throw new Error('Forbidden: Only Admin leadership can edit existing company records.');
+    }
     if (isSupabaseConfigured) {
       return supabaseDataService.updateCompany(id, updates);
     }
@@ -344,7 +348,12 @@ export const api = {
       });
       checkAuthResponse(res);
       if (res.ok) return await res.json();
-    } catch (_) {}
+      if (res.status === 403) {
+        throw new Error('Forbidden: Only Admin leadership can edit existing company records.');
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('Forbidden')) throw err;
+    }
     return supabaseDataService.updateCompany(id, updates);
   },
 
@@ -634,6 +643,7 @@ export const api = {
             const localComp: Company = {
               id: 'comp_csv_' + Date.now() + '_' + i,
               name: companyName,
+              source: 'import',
               ...newCompany,
               created_at: new Date().toISOString(),
             };
@@ -666,6 +676,7 @@ export const api = {
               clientFallbackStore.saveJD({
                 id: 'jd_csv_' + Date.now() + '_' + i,
                 title: roleTitle,
+                raw_text: roleTitle,
                 company_id: comp.id,
                 is_verified: false,
                 opportunity_type: 'existing_post',

@@ -1,0 +1,8 @@
+{
+  "name": "PLACEMEIN CRA Outreach",
+  "description": "Recruitment & Sourcing CRM for CRA outreach, tasks, and candidate pipeline management",
+  "prompt": "Recruitment & Sourcing CRM for CRA outreach, tasks, and candidate pipeline management",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

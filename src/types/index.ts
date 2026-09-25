@@ -1,10 +1,11 @@
 export type UserRole = 'admin' | 'cra';
 export type SourceType = 'linkedin' | 'apollo' | 'manual' | 'import' | 'google_search';
 export type OpportunityType = 'existing_post' | 'cold_outreach';
+export type JDStatus = 'active' | 'converted' | 'purchased' | 'closed' | 'archived';
 export type OutreachChannelType = 'call' | 'mail' | 'text' | 'whatsapp' | 'linkedin';
 export type OutreachChannelStatus = 'not_started' | 'sent' | 'replied' | 'failed';
 export type CampaignStatus = 'draft' | 'active' | 'completed';
-export type OutcomeStatus = 'pending' | 'jd_received' | 'not_eligible' | 'eligible_active' | 'rejected' | 'community_joined';
+export type OutcomeStatus = 'pending' | 'jd_received' | 'not_eligible' | 'eligible_active' | 'rejected' | 'community_joined' | 'converted';
 
 export * from './attendance';
 
@@ -14,10 +15,34 @@ export interface CRA {
   email: string;
   role: UserRole;
   emp_id?: string;
+  phone?: string;
+  join_date?: string;
+  base_salary?: number;
+  jd_payout_rate?: number;
   monthly_jd_target?: number;
   is_active?: boolean;
   deleted_at?: string;
   created_at: string;
+}
+
+export interface SalaryRecord {
+  cra_id: string;
+  cra_name: string;
+  emp_id?: string;
+  email: string;
+  role: UserRole;
+  base_salary: number;
+  jd_payout_rate: number;
+  monthly_jd_target: number;
+  converted_jds_count: number;
+  converted_jds: JD[];
+  total_jds_count: number;
+  total_contacts_count: number;
+  jd_incentive_amount: number;
+  bonus_amount: number;
+  total_payout: number;
+  month: string;
+  status: 'draft' | 'approved' | 'paid';
 }
 
 export interface Company {
@@ -65,6 +90,10 @@ export interface JD {
   company_id: string;
   raw_text: string;
   is_verified: boolean;
+  status?: JDStatus;
+  is_purchased?: boolean;
+  purchase_date?: string;
+  client_notes?: string;
   verification_source?: 'html_url_parser' | 'manual_entry' | 'file_ai_extract' | 'pdf_upload';
   opportunity_type: OpportunityType;
   date_found: string;

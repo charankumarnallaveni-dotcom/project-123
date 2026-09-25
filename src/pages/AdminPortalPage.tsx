@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { CRA, JD, Company } from '../types';
 import { api } from '../services/api';
 import { clientFallbackStore } from '../services/clientFallbackStore';
-import { formatIndianDate } from '../utils/formatters';
+import { formatIndianDate, formatIndianNumber } from '../utils/formatters';
+import { BulkCompanyImportModal } from '../components/BulkCompanyImportModal';
+import { CompanyDetailsModal } from '../components/CompanyDetailsModal';
 import {
   ShieldCheck,
   Users,
@@ -26,14 +28,20 @@ import {
   UserCheck,
   UserX,
   Clock,
+  ExternalLink,
+  DollarSign,
+  Download,
+  Filter,
 } from 'lucide-react';
 
 interface AdminPortalPageProps {
   initialTab?: 'users' | 'companies' | 'settings';
+  currentUser?: CRA | null;
 }
 
 export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
   initialTab = 'users',
+  currentUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'companies' | 'settings'>(initialTab);
   const [users, setUsers] = useState<CRA[]>([]);
@@ -42,6 +50,12 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
   const [settingsData, setSettingsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Modals for Company Management
+  const [showBulkCompanyImport, setShowBulkCompanyImport] = useState(false);
+  const [selectedCompanyForEdit, setSelectedCompanyForEdit] = useState<Company | null>(null);
+  const [companySearch, setCompanySearch] = useState('');
+  const [companyIndustryFilter, setCompanyIndustryFilter] = useState('all');
+
   // User creation modal
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -49,6 +63,10 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'cra'>('cra');
   const [newUserEmpId, setNewUserEmpId] = useState('');
+  const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserJoinDate, setNewUserJoinDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newUserBaseSalary, setNewUserBaseSalary] = useState<number>(25000);
+  const [newUserJdRate, setNewUserJdRate] = useState<number>(2500);
   const [newUserTarget, setNewUserTarget] = useState<number>(10);
   const [newUserStatus, setNewUserStatus] = useState<'active' | 'inactive'>('active');
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
@@ -58,6 +76,9 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
   const [editName, setEditName] = useState<string>('');
   const [editEmail, setEditEmail] = useState<string>('');
   const [editEmpId, setEditEmpId] = useState<string>('');
+  const [editPhone, setEditPhone] = useState<string>('');
+  const [editBaseSalary, setEditBaseSalary] = useState<number>(25000);
+  const [editJdRate, setEditJdRate] = useState<number>(2500);
   const [editTarget, setEditTarget] = useState<number>(10);
   const [editRole, setEditRole] = useState<'admin' | 'cra'>('cra');
   const [editActive, setEditActive] = useState<boolean>(true);
@@ -156,6 +177,10 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
         password: newUserPassword,
         role: newUserRole,
         emp_id: newUserEmpId.trim() || undefined,
+        phone: newUserPhone.trim() || undefined,
+        join_date: newUserJoinDate || undefined,
+        base_salary: newUserBaseSalary,
+        jd_payout_rate: newUserJdRate,
         monthly_jd_target: newUserTarget,
         is_active: newUserStatus === 'active',
       });
@@ -164,6 +189,9 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserEmpId('');
+      setNewUserPhone('');
+      setNewUserBaseSalary(25000);
+      setNewUserJdRate(2500);
       setNewUserStatus('active');
       showNotification('success', `User account created successfully for ${newUserName.trim()}`);
       await loadData();
@@ -180,12 +208,15 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
         name: editName.trim() || undefined,
         email: editEmail.trim() || undefined,
         emp_id: editEmpId.trim() || undefined,
+        phone: editPhone.trim() || undefined,
+        base_salary: editBaseSalary,
+        jd_payout_rate: editJdRate,
         monthly_jd_target: editTarget,
         role: editRole,
         is_active: editActive,
       });
       setEditingUserId(null);
-      showNotification('success', 'User profile updated successfully.');
+      showNotification('success', 'User profile and compensation updated successfully.');
       await loadData();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to update user');
@@ -803,6 +834,141 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
               </div>
             </form>
           </div>
+
+          {/* Section C: Total Company Master Directory */}
+          <div className="p-6 rounded-3xl bg-amber-950/30 border border-amber-800/40 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-amber-400" />
+                  <span>Total Company Master Directory ({companies.length})</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Admin Edit Only
+                  </span>
+                </h3>
+                <p className="text-xs text-amber-200/70 mt-0.5">
+                  Master enterprise list. Editing existing company profiles is restricted exclusively to Admin leadership.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowBulkCompanyImport(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-amber-900/40 cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Bulk Import Companies</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-amber-950/40 p-3 rounded-2xl border border-amber-800/40">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative">
+                  <Search className="h-4 w-4 text-amber-400/60 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={companySearch}
+                    onChange={(e) => setCompanySearch(e.target.value)}
+                    placeholder="Search company name, domain, location..."
+                    className="w-64 bg-gray-950 border border-amber-700/50 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-amber-400/40 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-amber-200">
+                  <Filter className="h-3.5 w-3.5" />
+                  <span>Industry:</span>
+                  <select
+                    value={companyIndustryFilter}
+                    onChange={(e) => setCompanyIndustryFilter(e.target.value)}
+                    className="bg-gray-950 border border-amber-700/50 text-white rounded-lg px-2.5 py-1 text-xs"
+                  >
+                    <option value="all">All Industries</option>
+                    {Array.from(new Set(companies.map((c) => c.industry).filter(Boolean))).map((ind) => (
+                      <option key={ind} value={ind}>
+                        {ind}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <span className="text-xs text-amber-300/70 self-center">
+                {companies.filter((c) => {
+                  const matchQ = !companySearch || c.name.toLowerCase().includes(companySearch.toLowerCase());
+                  const matchInd = companyIndustryFilter === 'all' || c.industry === companyIndustryFilter;
+                  return matchQ && matchInd;
+                }).length} company record(s)
+              </span>
+            </div>
+
+            {/* Companies Table */}
+            <div className="border border-amber-800/40 rounded-2xl overflow-hidden max-h-80 overflow-y-auto bg-gray-950/60">
+              <table className="w-full text-left text-xs text-amber-100">
+                <thead className="bg-amber-900/40 text-amber-300 font-semibold border-b border-amber-800/60 sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-3.5">Company Name</th>
+                    <th className="py-2.5 px-3.5">Industry</th>
+                    <th className="py-2.5 px-3.5">Headcount</th>
+                    <th className="py-2.5 px-3.5">Website</th>
+                    <th className="py-2.5 px-3.5">Entered By</th>
+                    <th className="py-2.5 px-3.5 text-right">Admin Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-800/30">
+                  {companies
+                    .filter((c) => {
+                      const matchQ = !companySearch || c.name.toLowerCase().includes(companySearch.toLowerCase());
+                      const matchInd = companyIndustryFilter === 'all' || c.industry === companyIndustryFilter;
+                      return matchQ && matchInd;
+                    })
+                    .map((comp) => (
+                      <tr key={comp.id} className="hover:bg-amber-900/20 transition">
+                        <td className="py-2.5 px-3.5 font-bold text-white">
+                          <div>{comp.name}</div>
+                          <div className="text-[10px] text-amber-400/60 font-mono">ID: {comp.id}</div>
+                        </td>
+                        <td className="py-2.5 px-3.5 text-amber-200/80">
+                          {comp.industry || 'Information Technology'}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-amber-200/80">
+                          {comp.employee_count || '100-500 employees'}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-amber-400 font-mono text-[11px]">
+                          {comp.website ? (
+                            <a
+                              href={comp.website.startsWith('http') ? comp.website : `https://${comp.website}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-amber-300 hover:underline flex items-center gap-1"
+                            >
+                              <span className="truncate max-w-[140px]">{comp.website}</span>
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-emerald-300 text-[11px]">
+                          {comp.entered_by_name || 'Admin'}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <button
+                            onClick={() => setSelectedCompanyForEdit(comp)}
+                            className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition"
+                            title="Edit company profile (Admin Only)"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            <span>Edit Details</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1065,6 +1231,63 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-amber-200 font-semibold mb-1">
+                    Phone / Mobile Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={newUserPhone}
+                    onChange={(e) => setNewUserPhone(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-amber-950/50 border border-amber-700/60 rounded-xl text-white placeholder-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-amber-200 font-semibold mb-1">
+                    Joining Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newUserJoinDate}
+                    onChange={(e) => setNewUserJoinDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-amber-950/50 border border-amber-700/60 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-amber-200 font-semibold mb-1">
+                    Monthly Base Salary (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={newUserBaseSalary}
+                    onChange={(e) => setNewUserBaseSalary(parseInt(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2.5 bg-amber-950/50 border border-amber-700/60 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-amber-200 font-semibold mb-1">
+                    JD Conversion Incentive Rate (₹ / JD)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="250"
+                    value={newUserJdRate}
+                    onChange={(e) => setNewUserJdRate(parseInt(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2.5 bg-amber-950/50 border border-amber-700/60 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-amber-200 font-semibold mb-1">
@@ -1168,6 +1391,35 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Company Import Modal (Admin Master Directory) */}
+      <BulkCompanyImportModal
+        isOpen={showBulkCompanyImport}
+        onClose={() => setShowBulkCompanyImport(false)}
+        onImportComplete={(createdCount) => {
+          showNotification(
+            'success',
+            `Bulk Company Import successfully added ${createdCount} organizations into Master Directory!`
+          );
+          loadData();
+        }}
+        currentUser={currentUser}
+      />
+
+      {/* Admin Company Profile Edit Modal */}
+      {selectedCompanyForEdit && (
+        <CompanyDetailsModal
+          company={selectedCompanyForEdit}
+          isOpen={Boolean(selectedCompanyForEdit)}
+          onClose={() => setSelectedCompanyForEdit(null)}
+          onUpdateCompany={(updated) => {
+            setCompanies((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+            setSelectedCompanyForEdit(updated);
+            showNotification('success', `Company profile updated successfully.`);
+          }}
+          currentUser={currentUser}
+        />
       )}
     </div>
   );

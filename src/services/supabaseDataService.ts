@@ -130,6 +130,10 @@ export const supabaseDataService = {
   },
 
   async updateCompany(id: string, updates: Partial<Company>): Promise<Company> {
+    const current = clientFallbackStore.getCurrentUser();
+    if (current && current.role !== 'admin') {
+      throw new Error('Forbidden: Only Admin leadership can edit existing company records.');
+    }
     if (!isSupabaseConfigured) {
       const companies = clientFallbackStore.getCompanies();
       const idx = companies.findIndex((c) => c.id === id);

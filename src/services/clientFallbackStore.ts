@@ -7,7 +7,8 @@ import {
   Task, 
   LeaveRequest, 
   DashboardStats,
-  JD
+  JD,
+  OutreachChannel
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -495,6 +496,10 @@ export const clientFallbackStore = {
       email: cleanEmail,
       role: userData.role || 'cra',
       emp_id: userData.emp_id || `PM-${Math.floor(100 + Math.random() * 900)}`,
+      phone: userData.phone,
+      join_date: userData.join_date || new Date().toISOString().split('T')[0],
+      base_salary: userData.base_salary !== undefined ? userData.base_salary : 25000,
+      jd_payout_rate: userData.jd_payout_rate !== undefined ? userData.jd_payout_rate : 2500,
       monthly_jd_target: userData.monthly_jd_target || 20,
       is_active: userData.is_active !== undefined ? userData.is_active : true,
       created_at: new Date().toISOString(),
@@ -775,6 +780,20 @@ export const clientFallbackStore = {
     return {
       message: `Merged ${source.name} into ${target.name}. Transferred ${reassociatedContacts} contacts and ${reassociatedJds} JDs.`,
     };
+  },
+
+  getOutreachChannels(): OutreachChannel[] {
+    try {
+      return JSON.parse(localStorage.getItem('placemein_outreach_channels') || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  saveOutreachChannels(channels: OutreachChannel[]) {
+    try {
+      localStorage.setItem('placemein_outreach_channels', JSON.stringify(channels));
+    } catch (_) {}
   },
 };
 
